@@ -1,0 +1,68 @@
+# Render blueprint for the ProofPack AI backend + Celery worker.
+# Postgres+pgvector -> Supabase, Redis -> Upstash, object storage -> Cloudflare R2,
+# frontend -> Vercel. Secrets (sync:false) are filled in the Render dashboard.
+# See writeup.md "Deployment" for the full free-tier walkthrough.
+
+services:
+  - type: web
+    name: proofpack-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # create_all bootstraps the schema on first boot; for explicit control run
+    # `alembic upgrade head` as a pre-deploy/job instead.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: proofpack-shared
+      - key: INGEST_MODE
+        value: async
+
+  - type: worker
+    name: proofpack-worker
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=2
+    envVars:
+      - fromGroup: proofpack-shared
+
+envVarGroups:
+  - name: proofpack-shared
+    envVars:
+      # Supabase pooled connection string (postgresql+psycopg://...:6543/postgres)
+      - key: DATABASE_URL_OVERRIDE
+        sync: false
+      # Upstash Redis URL (rediss://...)
+      - key: REDIS_URL
+        sync: false
+      # Gemini free-tier key
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMBEDDING_DIM
+        value: "768"
+      # Object storage -> Cloudflare R2 (S3-compatible)
+      - key: STORAGE_BACKEND
+        value: s3
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        value: proofpack
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION
+        value: auto
+      # NWS/Nominatim require a real contact User-Agent
+      - key: EXTERNAL_USER_AGENT
+        sync: false
+      # Optional tracing
+      - key: TRACING_ENABLED
+        value: "false"
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false

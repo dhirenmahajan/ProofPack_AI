@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+# Local upload dir at repo root — not the Python package at app/storage/
+/storage
+.env
+.git

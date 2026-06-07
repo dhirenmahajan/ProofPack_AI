@@ -51,6 +51,36 @@ export interface ProviderStatus {
   ocr: string;
 }
 
+export interface ClaimPacket {
+  id: string;
+  claim_id: string;
+  agent_run_id?: string | null;
+  markdown: string;
+  confidence?: number | null;
+  needs_review: boolean;
+  status: string;
+  citations: unknown[];
+  gaps: { source_type: string; description: string; status: string }[];
+  verification?: {
+    verified?: boolean;
+    summary?: string;
+    [k: string]: unknown;
+  } | null;
+  has_pdf: boolean;
+  created_at: string;
+}
+
+export interface AgentRun {
+  id: string;
+  claim_id: string;
+  workflow: string;
+  status: string;
+  error?: string | null;
+  latency_ms?: number | null;
+  created_at: string;
+  packet?: ClaimPacket | null;
+}
+
 export const SOURCE_TYPES = [
   "policy",
   "invoice",

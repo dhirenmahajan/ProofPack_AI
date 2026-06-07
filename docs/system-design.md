@@ -1,5 +1,8 @@
 # ProofPack AI — System Design
 
+> **Status:** Months 1–3 are implemented. Production runs on Railway (API + worker +
+> Postgres + Redis + S3 bucket) with the frontend on Vercel. See `writeup.md` for live URLs.
+
 ## 1. Goals
 
 - Ingest messy, real-world, **multimodal** disaster-claim evidence (PDFs, scanned forms,
@@ -7,57 +10,69 @@
 - Reason over that evidence with **RAG + agents** and produce a **claim-ready packet**
   where every assertion is **cited** back to a source (document page, image region,
   weather event, or public record).
-- Be **measurable** (eval harness) and **observable** (tracing, cost/latency).
+- Be **measurable** (eval harness + CI gate) and **observable** (opt-in PII-redacted tracing).
 
 ## 2. Component overview
 
 | Layer | Tech | Responsibility |
 | ----- | ---- | -------------- |
-| Frontend | Next.js / TS / Tailwind | Claim intake wizard, upload, evidence + citations viewer, human approval. |
-| Gateway | FastAPI | REST API, validation, orchestration entrypoint. |
-| Ingestion | Python services (+ Celery later) | OCR / parse / chunk / embed for each uploaded artifact. |
-| Storage | Postgres + pgvector + object store | Structured metadata, embeddings, raw blobs. |
-| RAG | hybrid retrieval + re-rank | Find the right evidence, return cited answers. |
-| Agents (M2) | LangGraph | Bounded-responsibility agents with tool permissions. |
-| Eval/Obs (M3) | Ragas + LangSmith/Phoenix + OTel | Quality gates and production telemetry. |
+| Frontend | Next.js / TS / Tailwind | Claim dashboard, upload (async poll), cited QA, packet panel. **Prod:** Vercel. |
+| Gateway | FastAPI | REST API, validation, orchestration entrypoint. **Prod:** Railway `proofpack-api`. |
+| Ingestion | Python + **Celery** | OCR / parse / chunk / embed per artifact. Sync or async (`INGEST_MODE`). |
+| Storage | Postgres + pgvector + **S3/local object store** | Metadata, embeddings, raw blobs. |
+| RAG | DB-side hybrid retrieval (HNSW + FTS + RRF) | Claim-scoped cited answers. |
+| Agents | **LangGraph** workflow | Intake → extraction → FEMA/NWS verify → policy RAG → gaps → report → review. |
+| Eval/Obs | HTTP eval harness + Langfuse (opt-in) | Quality gates in CI; PII-redacted traces. |
 
 ## 3. Provider abstraction (key design decision)
 
-All model inference flows through `app/providers`. Each provider exposes a narrow
-interface and resolves an implementation at runtime:
+All model inference flows through `app/providers`. Each factory is `@lru_cache`d and
+resolves at runtime with `*_PROVIDER=auto` priority **Gemini → OpenAI → stub**:
 
-- `LLM_PROVIDER=auto` → use OpenAI if `OPENAI_API_KEY` is set, else the **stub** LLM
-  (deterministic extractive answers assembled from retrieved chunks, with citations).
-- `EMBEDDINGS_PROVIDER=auto` → OpenAI embeddings, else a **deterministic hashing
-  embedder** that still produces meaningful cosine similarity for demos/tests.
-- `OCR_PROVIDER=auto` → HF inference OCR for images, else stub. PDF/text extraction is
-  always real (pypdf), so the pipeline is genuinely functional with zero keys.
+- **LLM** — `GeminiLLM` (`gemini-2.5-flash`) → OpenAI → `StubLLM` (extractive, cites).
+- **Embeddings** — `GeminiEmbedder` (`gemini-embedding-001`, 768-dim) → OpenAI →
+  `StubEmbedder` (deterministic hashed BoW).
+- **OCR** — `GeminiVisionOCR` → HF → Tesseract → `StubOCR`. PDF/text via **pypdf** always.
 
-This keeps the system runnable out-of-the-box, testable in CI without secrets, and a
-one-line upgrade to hosted inference.
+Hosted providers fall back to stubs on error. `GET /providers` reports live implementations.
+**Prod** runs with Gemini when `GEMINI_API_KEY` is set on Railway.
 
 ## 4. Data model
 
-- **Claim** — the unit of work (claimant, incident type/date, location, status).
-- **Document** — an uploaded artifact (filename, content type, source type, storage path,
-  ocr confidence).
-- **Chunk** — a retrievable unit (text, page number, bbox, source type, embedding vector,
-  token count) linked to a document + claim.
-- **QARun** — an audit record of a question, the retrieved chunk ids, and the cited answer.
+- **Claim** — unit of work (claimant, incident type/date, location, status).
+- **Document** — uploaded artifact (filename, source type, storage path, OCR confidence, status).
+- **Chunk** — retrievable unit (text, page, source type, `Vector(768)` embedding); denormalised `claim_id`.
+- **QARun** — audit of each QA call (question, answer, citations, provider, latency).
+- **AgentRun / ExtractionResult / VerificationResult / ClaimPacket** — agent workflow outputs.
 
-## 5. RAG flow (Month 1)
+## 5. RAG flow (Month 1 — built)
 
-1. Upload → persist blob to object store + `Document` row.
-2. Parse/OCR → text (per page for PDFs).
-3. Chunk by semantic section/page with overlap; capture layout metadata (page, source).
-4. Embed each chunk → store vector in pgvector.
-5. Query: hybrid score = α·(vector cosine) + (1−α)·(keyword/trigram), top-k.
-6. Re-rank (lexical overlap heuristic now; cross-encoder later).
-7. Generate answer with **strict citation requirement**; return `[n]` → chunk mapping.
+1. Upload → persist blob (`app/storage`) + `Document` row (`processing`).
+2. OCR/parse → per-page text.
+3. Chunk (180-word windows, 40 overlap) with page metadata.
+4. Embed → store in pgvector with HNSW index.
+5. Query: pgvector cosine ANN + Postgres FTS, fused with **Reciprocal Rank Fusion** (0.7/0.3).
+6. LLM answer with `[n]` citations → `QARun` persisted.
 
-## 6. Future (Months 2–3)
+Async path: API enqueues `process_document_task`; worker completes ingestion.
 
-- LangGraph agents: Intake, Evidence Extraction, FEMA/NWS Verification, Policy RAG,
-  Gap Analysis, Report Writer, Human Review.
-- Eval harness with seeded claim scenarios; CI eval gates.
-- OpenTelemetry traces, cost-per-packet, p95/p99, hallucination + override rates.
+## 6. Agent workflow (Month 2 — built)
+
+Linear LangGraph state machine (`app/agents/`): intake (Nominatim) → extraction (Gemini/regex) →
+verification (OpenFEMA + NWS) → policy RAG → gap analysis → report writer (deterministic) →
+human review. Packet markdown + PDF (reportlab) stored in object storage. Contract: `AGENTS.md`.
+
+## 7. Eval + observability (Month 3 — built)
+
+- `backend/evals/` — HTTP-driven harness; gates Recall@5 + faithfulness in CI.
+- `app/observability.py` — opt-in Langfuse tracing with PII redaction.
+
+## 8. Production topology
+
+```
+Vercel frontend → Railway API → Postgres / Redis / S3 bucket
+                      ↓ enqueue
+                Railway Celery worker
+```
+
+Live URLs: see `README.md` § Production deployment.

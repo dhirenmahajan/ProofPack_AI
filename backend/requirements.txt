@@ -11,3 +11,24 @@ numpy==2.0.2
 httpx==0.28.1
 tenacity==9.0.0
 openai==1.57.2
+
+# --- Gemini (free-tier primary provider) + multimodal/local OCR ---
+google-genai
+pillow
+pytesseract
+
+# --- Scalability: async ingestion, S3-compatible storage, migrations ---
+celery[redis]
+redis
+boto3
+alembic
+
+# --- Agentic workflow (Month 2) + packet generation ---
+langgraph
+langchain-core
+reportlab
+
+# --- Observability (Month 3, optional) ---
+langfuse
+opentelemetry-sdk
+opentelemetry-exporter-otlp

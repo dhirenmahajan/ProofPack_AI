@@ -21,8 +21,8 @@ dist/
 npm-debug.log*
 yarn-error.log*
 
-# Data & artifacts
-storage/
+# Data & artifacts (local upload dir — not backend/app/storage Python package)
+/backend/storage/
 data/
 *.sqlite
 *.db

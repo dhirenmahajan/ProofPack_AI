@@ -8,6 +8,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.db.models import QARun
+from app.observability import traced
 from app.providers import get_llm
 from app.providers.base import RetrievedContext
 from app.schemas import Citation, QAResponse
@@ -21,6 +22,25 @@ def answer_question(
     claim_id: uuid.UUID,
     question: str,
     top_k: int = 5,
+) -> QAResponse:
+    with traced("qa", inputs={"question": question, "claim_id": str(claim_id)}) as record:
+        response = _answer_question(db, claim_id, question, top_k)
+        record(
+            output=response.answer,
+            metadata={
+                "provider": response.provider,
+                "latency_ms": response.latency_ms,
+                "citations": len(response.citations),
+            },
+        )
+        return response
+
+
+def _answer_question(
+    db: Session,
+    claim_id: uuid.UUID,
+    question: str,
+    top_k: int,
 ) -> QAResponse:
     started = time.perf_counter()
     llm = get_llm()

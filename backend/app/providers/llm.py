@@ -77,6 +77,50 @@ class StubLLM:
         return AnswerResult(answer=answer, citation_indices=used, provider=self.name)
 
 
+def _parse_citations(text: str) -> list[int]:
+    return sorted({int(n) for n in re.findall(r"\[(\d+)\]", text)})
+
+
+class GeminiLLM:
+    """Google Gemini hosted LLM (free tier). Same citation discipline as the stub."""
+
+    name = "gemini"
+
+    def __init__(self, model: str, api_key: str) -> None:
+        from google import genai
+
+        self.model = model
+        self._client = genai.Client(api_key=api_key)
+
+    def answer(
+        self, question: str, contexts: list[RetrievedContext]
+    ) -> AnswerResult:
+        from google.genai import types
+
+        user_prompt = (
+            f"Question: {question}\n\n"
+            f"Evidence:\n{_format_contexts(contexts)}\n\n"
+            "Answer with inline citations like [1]."
+        )
+        try:
+            resp = self._client.models.generate_content(
+                model=self.model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=0.0,
+                ),
+            )
+            text = (resp.text or "").strip()
+        except Exception:  # noqa: BLE001 - degrade to extractive stub, never crash QA
+            return StubLLM().answer(question, contexts)
+        if not text:
+            return StubLLM().answer(question, contexts)
+        return AnswerResult(
+            answer=text, citation_indices=_parse_citations(text), provider=self.name
+        )
+
+
 class OpenAILLM:
     name = "openai"
 
@@ -103,17 +147,23 @@ class OpenAILLM:
             temperature=0.0,
         )
         text = resp.choices[0].message.content or ""
-        used = sorted({int(n) for n in re.findall(r"\[(\d+)\]", text)})
-        return AnswerResult(answer=text, citation_indices=used, provider=self.name)
+        return AnswerResult(
+            answer=text, citation_indices=_parse_citations(text), provider=self.name
+        )
 
 
 @lru_cache
 def get_llm() -> LLMProvider:
     provider = settings.llm_provider
-    has_key = bool(settings.openai_api_key)
+    has_gemini = bool(settings.gemini_api_key)
+    has_openai = bool(settings.openai_api_key)
 
-    if provider == "openai" or (provider == "auto" and has_key):
-        if not has_key:
+    if provider == "gemini" or (provider == "auto" and has_gemini):
+        if not has_gemini:
+            raise RuntimeError("LLM_PROVIDER=gemini but GEMINI_API_KEY is unset")
+        return GeminiLLM(model=settings.gemini_llm_model, api_key=settings.gemini_api_key)
+    if provider == "openai" or (provider == "auto" and has_openai):
+        if not has_openai:
             raise RuntimeError("LLM_PROVIDER=openai but OPENAI_API_KEY is unset")
         return OpenAILLM(model=settings.llm_model, api_key=settings.openai_api_key)
     return StubLLM()

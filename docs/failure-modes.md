@@ -1,6 +1,9 @@
 # ProofPack AI — Failure Modes
 
-A living catalog of how the system can fail and the mitigations in place / planned.
+A living catalog of how the system can fail and the mitigations in place.
+
+**Context:** local dev uses Docker Compose (sync or async ingest); production uses Railway
+(API + Celery worker + Postgres + Redis + S3 bucket) and Vercel (frontend).
 
 | # | Failure mode | Impact | Mitigation |
 | - | ------------ | ------ | ---------- |
@@ -14,3 +17,8 @@ A living catalog of how the system can fail and the mitigations in place / plann
 | 8 | Schema drift in agent outputs | Downstream breakage | Pydantic schema validation; schema-validity eval. |
 | 9 | Provider key missing/invalid | Hard failure | Provider abstraction with deterministic stub fallback; clear logging. |
 | 10 | PII leakage in logs/traces | Compliance risk | Redact PII before tracing; scope retention. |
+| 11 | Celery worker down (async ingest) | Uploads stuck at `processing` | Monitor worker logs; scale `proofpack-worker`; fall back to `INGEST_MODE=sync` for dev. |
+| 12 | Railway `$PORT` misconfiguration | Healthcheck fails, API never binds | Use shell-form start (`sh -c 'uvicorn … --port ${PORT:-8000}'`) in `Dockerfile`; avoid literal `$PORT` in non-shell commands. |
+| 13 | `app/storage` excluded from deploy | ImportError at boot | `.gitignore` only ignores `/backend/storage/` (upload dir), not `backend/app/storage/` Python package. |
+| 14 | Embedding dim mismatch (768 vs 1536) | Insert/query errors on chunks | Set `EMBEDDING_DIM=768` with Gemini; recreate DB volume if vectors were stored at wrong dim. |
+| 15 | Object store unreachable (S3) | Ingest/PDF download fails | Verify `S3_*` creds from Railway bucket; API and worker must share the same bucket config. |

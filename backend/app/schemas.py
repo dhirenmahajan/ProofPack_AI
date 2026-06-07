@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 # --- Claims ---
@@ -74,3 +74,49 @@ class QAResponse(BaseModel):
     provider: str
     citations: list[Citation]
     latency_ms: int
+
+
+# --- Agentic workflow / claim packets (Month 2) ---
+class PacketRequest(BaseModel):
+    # Reserved for future options (e.g. include/exclude sections). Kept for forward-compat.
+    regenerate: bool = False
+
+
+class ClaimPacketOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    claim_id: uuid.UUID
+    agent_run_id: Optional[uuid.UUID] = None
+    markdown: str
+    confidence: Optional[float] = None
+    needs_review: bool
+    status: str
+    citations: list[Any] = []
+    gaps: list[Any] = []
+    verification: Optional[dict] = None
+    storage_path: Optional[str] = Field(default=None, exclude=True)
+    created_at: datetime
+
+    @computed_field
+    @property
+    def has_pdf(self) -> bool:
+        return bool(self.storage_path)
+
+
+class AgentRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    claim_id: uuid.UUID
+    workflow: str
+    status: str
+    error: Optional[str] = None
+    latency_ms: Optional[int] = None
+    created_at: datetime
+    packet: Optional[ClaimPacketOut] = None
+
+
+class PacketReviewRequest(BaseModel):
+    approve: bool = True
+    markdown: Optional[str] = None  # optional human edits to the packet body

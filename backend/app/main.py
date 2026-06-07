@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.routes import claims, documents, health, qa
+from app.api.routes import claims, documents, health, packets, qa
 from app.config import settings
 from app.db import models  # noqa: F401 - ensure models register on Base
 from app.db.session import Base, engine
@@ -19,10 +19,19 @@ logger = logging.getLogger("proofpack")
 
 
 def _init_db() -> None:
-    """Ensure pgvector extension + tables exist (idempotent)."""
+    """Ensure extensions, tables, and performance indexes exist (idempotent).
+
+    This is the dev bootstrap. In production the same shape is produced by the
+    Alembic baseline migration (`alembic upgrade head`).
+    """
+    from app.db.indexes import apply_indexes
+
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        apply_indexes(conn)
 
 
 @asynccontextmanager
@@ -54,6 +63,7 @@ app.include_router(health.router)
 app.include_router(claims.router)
 app.include_router(documents.router)
 app.include_router(qa.router)
+app.include_router(packets.router)
 
 
 @app.get("/", tags=["health"])

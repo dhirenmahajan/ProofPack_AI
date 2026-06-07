@@ -77,10 +77,11 @@ export function UploadPanel({
           onChange={(e) => e.target.files && uploadFiles(e.target.files)}
         />
         <p className="text-sm text-slate-600">
-          {busy ? "Uploading & ingesting…" : "Drop files or click to upload"}
+          {busy ? "Uploading…" : "Drop files or click to upload"}
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          PDFs & text are parsed now · images/audio via hosted OCR when keys are set
+          PDFs & text parsed locally · images/audio via Gemini multimodal (or
+          Tesseract/HF) when keys are set · ingestion runs in the background
         </p>
       </div>
 
@@ -103,8 +104,16 @@ export function UploadPanel({
                   : "—"}
               </span>
             </div>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
-              {d.status}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                d.status === "ready"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : d.status === "failed"
+                    ? "bg-red-100 text-red-700"
+                    : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {d.status === "processing" ? "processing…" : d.status}
             </span>
           </li>
         ))}

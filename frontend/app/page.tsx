@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ClaimSidebar } from "@/components/ClaimSidebar";
+import { PacketPanel } from "@/components/PacketPanel";
 import { ProviderBadge } from "@/components/ProviderBadge";
 import { QAPanel } from "@/components/QAPanel";
 import { UploadPanel } from "@/components/UploadPanel";
@@ -44,6 +45,14 @@ export default function Home() {
     setDocuments([]);
     refreshDocuments();
   }, [selectedId, refreshDocuments]);
+
+  // Async ingestion: while any document is still processing, poll for updates.
+  useEffect(() => {
+    const processing = documents.some((d) => d.status === "processing");
+    if (!processing) return;
+    const t = setInterval(refreshDocuments, 2000);
+    return () => clearInterval(t);
+  }, [documents, refreshDocuments]);
 
   const selectedClaim = claims.find((c) => c.id === selectedId) ?? null;
 
@@ -107,6 +116,8 @@ export default function Home() {
               />
 
               <QAPanel claimId={selectedClaim.id} />
+
+              <PacketPanel claimId={selectedClaim.id} />
             </div>
           )}
         </main>

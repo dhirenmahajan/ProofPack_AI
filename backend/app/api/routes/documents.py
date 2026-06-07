@@ -7,10 +7,11 @@ import uuid
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db.models import Claim
 from app.db.session import get_db
 from app.schemas import DocumentOut, UploadResponse
-from app.services.ingestion import ingest_document
+from app.services.ingestion import ingest_document, store_document
 
 router = APIRouter(prefix="/claims/{claim_id}/documents", tags=["documents"])
 
@@ -45,6 +46,24 @@ async def upload_document(
     data = await file.read()
     if not data:
         raise HTTPException(status_code=422, detail="Uploaded file is empty")
+
+    if settings.ingest_mode == "async":
+        # Persist fast, then hand OCR/chunk/embed to a Celery worker. The document
+        # comes back with status='processing'; the client polls the documents list.
+        document = store_document(
+            db=db,
+            claim_id=claim_id,
+            filename=file.filename or "upload",
+            content_type=file.content_type,
+            source_type=source_type,
+            data=data,
+        )
+        from app.tasks import process_document_task
+
+        process_document_task.delay(str(document.id))
+        return UploadResponse(
+            document=DocumentOut.model_validate(document), chunks_created=0
+        )
 
     document, chunks_created = ingest_document(
         db=db,

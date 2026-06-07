@@ -1,6 +1,8 @@
 import type {
+  AgentRun,
   Claim,
   ClaimDocument,
+  ClaimPacket,
   ProviderStatus,
   QAResponse,
   UploadResponse,
@@ -76,5 +78,50 @@ export const api = {
         body: JSON.stringify({ question, top_k: topK }),
       }),
     );
+  },
+
+  async generatePacket(claimId: string): Promise<AgentRun> {
+    return handle(
+      await fetch(`${BASE}/claims/${claimId}/packet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate: true }),
+      }),
+    );
+  },
+
+  async getRun(claimId: string, runId: string): Promise<AgentRun> {
+    return handle(
+      await fetch(`${BASE}/claims/${claimId}/packet/runs/${runId}`, {
+        cache: "no-store",
+      }),
+    );
+  },
+
+  async latestPacket(claimId: string): Promise<ClaimPacket | null> {
+    const res = await fetch(`${BASE}/claims/${claimId}/packet/latest`, {
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    return handle(res);
+  },
+
+  async reviewPacket(
+    claimId: string,
+    packetId: string,
+    approve: boolean,
+    markdown?: string,
+  ): Promise<ClaimPacket> {
+    return handle(
+      await fetch(`${BASE}/claims/${claimId}/packet/${packetId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve, markdown }),
+      }),
+    );
+  },
+
+  packetPdfUrl(claimId: string, packetId: string): string {
+    return `${BASE}/claims/${claimId}/packet/${packetId}/pdf`;
   },
 };

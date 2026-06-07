@@ -5,6 +5,7 @@ Usage: python scripts/smoke_test.py [base_url]
 
 import json
 import sys
+import time
 import urllib.request
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
@@ -80,6 +81,19 @@ def main():
 
     up = upload(claim["id"], "policy.txt", SAMPLE_POLICY, "policy")
     print("uploaded:", up["document"]["filename"], "chunks:", up["chunks_created"])
+
+    # Ingestion may be async (Celery). Poll until the document is ready.
+    doc_id = up["document"]["id"]
+    for _ in range(30):
+        docs = get(f"/claims/{claim['id']}/documents")
+        doc = next((d for d in docs if d["id"] == doc_id), None)
+        if doc and doc["status"] == "ready":
+            break
+        if doc and doc["status"] == "failed":
+            raise SystemExit("ingestion failed")
+        time.sleep(1)
+    else:
+        raise SystemExit("timed out waiting for ingestion")
 
     qa = post(
         f"/claims/{claim['id']}/qa",

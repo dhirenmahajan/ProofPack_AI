@@ -1,34 +1,53 @@
 # ProofPack AI — Evaluation Methodology
 
-> Status: planned for Month 3. This document defines the harness so the system is
-> built eval-first.
+> **Status:** implemented in `backend/evals/`. CI runs a gated subset on every PR
+> (`.github/workflows/ci.yml`). Optional Gemini judge when `GEMINI_API_KEY` is set.
 
-## Seeded dataset (`/evals`)
+## Harness (`backend/evals/`)
 
-- 30 policy PDFs (or synthetic policy documents)
-- 50 invoices / receipts
-- 100 claim questions with gold answers + gold source spans
-- 50 damage photos (labeled)
-- 20 voice-note transcripts
-- 10 disaster scenarios tied to FEMA/NWS records
+HTTP-driven evals against a **live backend** — exercises ingestion → hybrid retrieval →
+cited QA → packet schema end to end. Key-free in CI (stub providers, `INGEST_MODE=sync`).
+
+```bash
+# Local
+docker compose up --build -d
+cd backend && python -m evals.run_evals --base-url http://localhost:8000
+
+# Production (after deploy)
+python -m evals.run_evals --base-url https://proofpack-api-production.up.railway.app
+```
+
+Results: `backend/evals/results.md`
+
+## Seeded dataset (`dataset.py`)
+
+Current **SUBSET** (CI gate):
+
+- Synthetic policy PDF + invoice with gold Q/A pairs
+- Gold source filenames for retrieval/citation checks
+
+`get_cases(full=True)` is the extension hook for a larger corpus:
+
+- 30 policy PDFs, 50 invoices/receipts, 100 claim questions, 50 damage photos,
+  20 voice-note transcripts, 10 disaster scenarios tied to FEMA/NWS records
 
 ## Metrics
 
-| Metric | What it proves | Tool |
-| ------ | -------------- | ---- |
-| Retrieval Recall@5 | The right evidence is retrieved. | custom |
-| MRR / nDCG | Best evidence ranks near the top. | custom |
-| Citation accuracy | Claims are backed by the correct sources. | custom |
-| Faithfulness | No invented/unsupported facts. | Ragas |
-| Answer relevance | The answer addresses the question. | Ragas |
-| Extraction F1 | Invoice/policy fields, dates, addresses extracted correctly. | custom |
-| Tool-call success rate | Agents reliably call FEMA/NWS/geocoding. | custom |
-| Schema validity | Agent outputs conform to JSON schemas. | pydantic |
-| Human escalation precision | Low-confidence cases routed to review. | custom |
-| Cost per completed packet | Production awareness. | tracing |
+| Metric | What it proves | Tool | CI gate |
+| ------ | -------------- | ---- | ------- |
+| Retrieval Recall@5 | Right evidence retrieved | custom | yes (≥ 0.75) |
+| Faithfulness | No unsupported facts | heuristic or Gemini judge | yes (≥ 0.5) |
+| MRR / nDCG | Best evidence ranks high | custom | report |
+| Citation precision | Citations point at gold sources | custom | report |
+| Keyword grounding | Gold terms in answer | custom | report |
+| Schema validity | Packet endpoints validate | pydantic | report |
+| Extraction F1 | Structured field accuracy | custom | planned |
+| Tool-call success rate | FEMA/NWS/geocode reliability | custom | planned |
+| Human escalation precision | Low-confidence → review | custom | planned |
+| Cost per completed packet | Unit economics | tracing | planned |
 
 ## CI eval gates
 
-- Run a fast subset on every PR; fail the build if Recall@5 or faithfulness regress
-  beyond a threshold versus the last green run.
-- Store results in `/evals/results.md`.
+- Postgres + Redis service containers; smoke test + eval subset; frontend `npm run build`.
+- Fail the build if Recall@5 or faithfulness regress below thresholds.
+- Store/update results in `backend/evals/results.md`.
