@@ -1,5 +1,8 @@
 # ProofPack AI — Eval Results
 
+Last run: local CI / stub providers (see `.github/workflows/ci.yml` for gated subset).
+Production API: https://proofpack-api-production-ed2f.up.railway.app
+
 Provider: `stub` · questions: 4
 
 | Metric | Score | Gate |

@@ -3,7 +3,8 @@
 A living catalog of how the system can fail and the mitigations in place.
 
 **Context:** local dev uses Docker Compose (sync or async ingest); production uses Railway
-(API + Celery worker + Postgres + Redis + S3 bucket) and Vercel (frontend).
+(API + Celery worker + Postgres + Redis + S3 bucket) and Vercel (frontend). Railway services
+deploy from GitHub `dhirenmahajan/ProofPack_AI@main` on every push.
 
 | # | Failure mode | Impact | Mitigation |
 | - | ------------ | ------ | ---------- |
@@ -22,3 +23,5 @@ A living catalog of how the system can fail and the mitigations in place.
 | 13 | `app/storage` excluded from deploy | ImportError at boot | `.gitignore` only ignores `/backend/storage/` (upload dir), not `backend/app/storage/` Python package. |
 | 14 | Embedding dim mismatch (768 vs 1536) | Insert/query errors on chunks | Set `EMBEDDING_DIM=768` with Gemini; recreate DB volume if vectors were stored at wrong dim. |
 | 15 | Object store unreachable (S3) | Ingest/PDF download fails | Verify `S3_*` creds from Railway bucket; API and worker must share the same bucket config. |
+| 16 | Shared HTTP healthcheck on worker | Worker deploy fails (no HTTP server) | Keep `/health` on **API service only**; `backend/railway.json` must not set a global healthcheck path. |
+| 17 | GitHub deploy out of sync with local | Prod runs stale code | Confirm Railway GitHub connection (repo `main`, root `backend/`); check deploy logs after `git push`. |

@@ -20,11 +20,12 @@ python -m evals.run_evals --full --no-gate                        # full, report
 
 ```bash
 cd backend
-python -m evals.run_evals --base-url https://proofpack-api-production.up.railway.app
+python -m evals.run_evals --base-url https://proofpack-api-production-ed2f.up.railway.app
 ```
 
 Use a `GEMINI_API_KEY` in the Railway API env for Gemini judge faithfulness scoring.
 Async ingest (`INGEST_MODE=async`) may require a short wait between upload and QA in manual runs.
+Run after a GitHub push deploy completes on Railway (`proofpack-api`).
 
 Results are written to [`results.md`](results.md).
 

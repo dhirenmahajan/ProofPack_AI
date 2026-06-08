@@ -70,9 +70,19 @@ human review. Packet markdown + PDF (reportlab) stored in object storage. Contra
 ## 8. Production topology
 
 ```
-Vercel frontend → Railway API → Postgres / Redis / S3 bucket
-                      ↓ enqueue
-                Railway Celery worker
+GitHub (dhirenmahajan/ProofPack_AI, main, backend/)
+        │ push → auto-deploy
+        ▼
+Vercel frontend ──→ Railway proofpack-api ──→ Postgres / Redis / S3 bucket
+                           │ enqueue
+                           ▼
+                    Railway proofpack-worker (Celery)
 ```
 
-Live URLs: see `README.md` § Production deployment.
+| Component | URL |
+| --------- | --- |
+| Frontend | https://frontend-cyan-iota-66.vercel.app |
+| API | https://proofpack-api-production-ed2f.up.railway.app |
+| Railway | https://railway.com/project/9d9107ee-366c-4edf-ac0b-f8cc6c0670ee |
+
+Live env matrix and setup: `writeup.md` §11 · quick reference: `README.md` § Production deployment.

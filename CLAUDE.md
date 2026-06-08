@@ -54,26 +54,34 @@ Automated checks: `scripts/smoke_test.py` (creates a claim, uploads a policy, wa
 ingestion, asserts a citation) and `evals/run_evals.py` (scored quality gate). Both run in
 CI (`.github/workflows/ci.yml`) against postgres+redis service containers, key-free.
 
-## Production (Railway + Vercel)
+## Production (Railway + Vercel + GitHub)
 
 | Service | URL |
 | ------- | --- |
 | Frontend | https://frontend-cyan-iota-66.vercel.app |
-| API | https://proofpack-api-production.up.railway.app |
+| API | https://proofpack-api-production-ed2f.up.railway.app |
+| Railway dashboard | https://railway.com/project/9d9107ee-366c-4edf-ac0b-f8cc6c0670ee |
 
-Railway project `proofpack-ai` runs the **scalable path**: `proofpack-api` + `proofpack-worker`
-(Celery) + managed Postgres + Redis + an S3-compatible **Railway bucket** (`STORAGE_BACKEND=s3`,
-`INGEST_MODE=async`). Vercel hosts `frontend/` with
-`NEXT_PUBLIC_API_BASE_URL=https://proofpack-api-production.up.railway.app`.
+Railway project **`proofpack-ai`** runs the scalable path: `proofpack-api` + `proofpack-worker`
+(Celery) + managed Postgres + Redis + Railway bucket (`STORAGE_BACKEND=s3`, `INGEST_MODE=async`).
+Both app services deploy from GitHub repo **`dhirenmahajan/ProofPack_AI`**, branch **`main`**,
+root directory **`backend/`**. Push to `main` → Railway auto-builds both services.
+
+Vercel hosts `frontend/` with
+`NEXT_PUBLIC_API_BASE_URL=https://proofpack-api-production-ed2f.up.railway.app`.
 
 Deploy notes:
-- API start command must use shell form for `$PORT` (see `backend/Dockerfile`); literal
-  `$PORT` in a non-shell start command fails on Railway.
-- Worker has **no HTTP healthcheck** — only the API should healthcheck `/health`.
+- **GitHub → Railway** is the primary deploy path (`git push origin main`). CLI `railway up`
+  is a fallback when you need a local upload without pushing.
+- API uses the **Dockerfile** in `backend/` (CMD binds `$PORT`). Do not set a start command
+  with a literal `$PORT` string — Railway won't expand it.
+- Worker start command: `celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=2`.
+  Worker has **no HTTP healthcheck** — `backend/railway.json` must not set a shared `/health`
+  (API gets `/health` via Railway service config only).
 - `backend/app/storage/` is a Python package; `.gitignore` must **not** exclude it (only
   `/backend/storage/` local upload dir).
-- `DATABASE_URL_OVERRIDE` from Railway is auto-normalized to `postgresql+psycopg://` in
-  `config.py`.
+- `DATABASE_URL_OVERRIDE=${{Postgres.DATABASE_URL}}` — `config.py` rewrites `postgresql://`
+  → `postgresql+psycopg://`.
 
 ## Architecture
 

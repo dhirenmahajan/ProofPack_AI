@@ -9,8 +9,14 @@ small agent with one job, explicit inputs/outputs, and a deterministic key-free 
 
 **Production:** packet runs execute on the Railway Celery worker (`proofpack-worker`) when
 `INGEST_MODE=async`. Generated PDFs land in the Railway S3 bucket via `app/storage/` and are
-served at `GET /claims/{id}/packet/{packet_id}/pdf`. Frontend:
-https://frontend-cyan-iota-66.vercel.app · API: https://proofpack-api-production.up.railway.app
+served at `GET /claims/{id}/packet/{packet_id}/pdf`.
+
+| Surface | URL |
+| ------- | --- |
+| Frontend | https://frontend-cyan-iota-66.vercel.app |
+| API | https://proofpack-api-production-ed2f.up.railway.app |
+
+Backend deploys from GitHub `dhirenmahajan/ProofPack_AI@main` (Railway auto-deploy on push).
 
 ## Where it lives
 

@@ -14,8 +14,11 @@ docker compose up --build -d
 cd backend && python -m evals.run_evals --base-url http://localhost:8000
 
 # Production (after deploy)
-python -m evals.run_evals --base-url https://proofpack-api-production.up.railway.app
+python -m evals.run_evals --base-url https://proofpack-api-production-ed2f.up.railway.app
 ```
+
+Production backend deploys from GitHub (`dhirenmahajan/ProofPack_AI@main`); run evals after
+Railway finishes building `proofpack-api`.
 
 Results: `backend/evals/results.md`
 

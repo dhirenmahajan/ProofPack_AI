@@ -326,16 +326,21 @@ flowchart LR
 | Component | URL / name |
 | --------- | ---------- |
 | Frontend | https://frontend-cyan-iota-66.vercel.app |
-| API + `/docs` | https://proofpack-api-production.up.railway.app |
-| Railway project | `proofpack-ai` (services: `proofpack-api`, `proofpack-worker`, `Postgres-k_pO`, `Redis`, bucket `proofpack`) |
+| API + `/docs` | https://proofpack-api-production-ed2f.up.railway.app |
+| GitHub repo | https://github.com/dhirenmahajan/ProofPack_AI |
+| Railway project | [`proofpack-ai`](https://railway.com/project/9d9107ee-366c-4edf-ac0b-f8cc6c0670ee) — services: `proofpack-api`, `proofpack-worker`, `Postgres`, `Redis`, bucket `proofpack` |
 
 Smoke test against production:
 
 ```bash
-python backend/scripts/smoke_test.py https://proofpack-api-production.up.railway.app
+python backend/scripts/smoke_test.py https://proofpack-api-production-ed2f.up.railway.app
 ```
 
 ### 11.2 Railway scalable path (what we deployed)
+
+**Deploy trigger:** connect both Railway services to GitHub (`dhirenmahajan/ProofPack_AI`,
+branch `main`, root `backend/`). Every push to `main` rebuilds `proofpack-api` and
+`proofpack-worker`. Manual fallback: `railway up --service …` from `backend/`.
 
 1. **Postgres** — Railway managed Postgres; `CREATE EXTENSION vector` + `pg_trgm` run on API
    boot (`main.py` `_init_db`). Set `DATABASE_URL_OVERRIDE=${{Postgres.DATABASE_URL}}` —
@@ -343,13 +348,14 @@ python backend/scripts/smoke_test.py https://proofpack-api-production.up.railway
 2. **Redis** — `REDIS_URL=${{Redis.REDIS_URL}}` for Celery broker + cache.
 3. **Object storage** — Railway bucket (S3-compatible): `STORAGE_BACKEND=s3`, `S3_*` from
    `railway bucket credentials --bucket proofpack`.
-4. **API** — `backend/` root, Dockerfile builder, shell start for `$PORT` (see `Dockerfile`),
+4. **API** — GitHub source, `backend/` root, **Dockerfile** builder (`backend/railway.json`),
+   Dockerfile CMD binds `$PORT`, healthcheck `/health` on the **API service only**,
    `INGEST_MODE=async`, `EMBEDDING_DIM=768`, `GEMINI_API_KEY`.
-5. **Worker** — same env as API; start command
+5. **Worker** — same GitHub source + env as API; start command
    `celery -A app.celery_app.celery_app worker --loglevel=info --concurrency=2`; **no**
-   HTTP healthcheck.
+   HTTP healthcheck (do not share `/health` in `railway.json` — worker is not HTTP).
 6. **Frontend** — Vercel project `frontend`; production env
-   `NEXT_PUBLIC_API_BASE_URL=https://proofpack-api-production.up.railway.app`.
+   `NEXT_PUBLIC_API_BASE_URL=https://proofpack-api-production-ed2f.up.railway.app`.
 
 ### 11.3 Alternative free-tier topology
 
