@@ -1,5 +1,14 @@
-<!-- generated-by: gsd-doc-writer -->
-# ProofPack AI — Multimodal Disaster Claim Intelligence Platform
+
+# ProofPack AI
+
+**Multimodal disaster-claim intelligence — RAG, agents, and evidence-backed packet generation**
+
+| | |
+| --- | --- |
+| **Live frontend** | https://frontend-cyan-iota-66.vercel.app |
+| **API / docs** | https://proofpack-api-production-ed2f.up.railway.app/docs |
+| **Repository** | https://github.com/dhirenmahajan/ProofPack_AI |
+| **Stack** | Next.js · FastAPI · PostgreSQL + pgvector · Redis · Celery · LangGraph · Google Gemini · Cloudflare R2 · Railway · Vercel |
 
 ProofPack AI assembles evidence-backed disaster insurance claim packets for small
 businesses, property owners, and local governments recovering from floods, hurricanes,
