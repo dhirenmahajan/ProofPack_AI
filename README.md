@@ -187,6 +187,8 @@ ProofPack_AI/
 ├── infra/postgres/         pgvector init SQL
 ├── docs/                   system design, eval methodology, failure modes
 ├── .github/workflows/      CI: smoke test + eval gate + frontend build
+├── infra/cloudflare/       R2 setup (wrangler.toml + README)
+├── scripts/                cloudflare_r2_setup.sh, railway_apply_r2.sh
 ├── docker-compose.yml      postgres (pgvector) + redis + backend + worker + frontend
 ├── render.yaml             Render blueprint (backend web + Celery worker)
 ├── writeup.md              end-to-end how-it-works + deploy guide
@@ -223,7 +225,7 @@ Railway builds for `proofpack-api` and `proofpack-worker`.
 | Worker | Railway `proofpack-worker` | Celery async ingestion + packet runs |
 | Postgres | Railway `Postgres` | pgvector + FTS |
 | Redis | Railway `Redis` | Celery broker + external-API cache |
-| Object storage | Railway bucket | S3-compatible blobs shared by API + worker |
+| Object storage | Cloudflare R2 (`proofpack`) | S3-compatible blobs — `infra/cloudflare/README.md` |
 
 Verify a deployed API:
 

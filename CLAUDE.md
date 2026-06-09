@@ -63,7 +63,8 @@ CI (`.github/workflows/ci.yml`) against postgres+redis service containers, key-f
 | Railway dashboard | https://railway.com/project/9d9107ee-366c-4edf-ac0b-f8cc6c0670ee |
 
 Railway project **`proofpack-ai`** runs the scalable path: `proofpack-api` + `proofpack-worker`
-(Celery) + managed Postgres + Redis + Railway bucket (`STORAGE_BACKEND=s3`, `INGEST_MODE=async`).
+(Celery) + managed Postgres + Redis + Cloudflare R2 (`STORAGE_BACKEND=s3`, `INGEST_MODE=async`).
+  R2 setup: `infra/cloudflare/README.md`.
 Both app services deploy from GitHub repo **`dhirenmahajan/ProofPack_AI`**, branch **`main`**,
 root directory **`backend/`**. Push to `main` → Railway auto-builds both services.
 

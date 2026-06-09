@@ -22,6 +22,6 @@ deploy from GitHub `dhirenmahajan/ProofPack_AI@main` on every push.
 | 12 | Railway `$PORT` misconfiguration | Healthcheck fails, API never binds | Use shell-form start (`sh -c 'uvicorn … --port ${PORT:-8000}'`) in `Dockerfile`; avoid literal `$PORT` in non-shell commands. |
 | 13 | `app/storage` excluded from deploy | ImportError at boot | `.gitignore` only ignores `/backend/storage/` (upload dir), not `backend/app/storage/` Python package. |
 | 14 | Embedding dim mismatch (768 vs 1536) | Insert/query errors on chunks | Set `EMBEDDING_DIM=768` with Gemini; recreate DB volume if vectors were stored at wrong dim. |
-| 15 | Object store unreachable (S3) | Ingest/PDF download fails | Verify `S3_*` creds from Railway bucket; API and worker must share the same bucket config. |
+| 15 | Object store unreachable (S3/R2) | Ingest/PDF download fails | Verify `S3_*` creds (Cloudflare R2 token or Railway bucket); API and worker must share the same config. |
 | 16 | Shared HTTP healthcheck on worker | Worker deploy fails (no HTTP server) | Keep `/health` on **API service only**; `backend/railway.json` must not set a global healthcheck path. |
 | 17 | GitHub deploy out of sync with local | Prod runs stale code | Confirm Railway GitHub connection (repo `main`, root `backend/`); check deploy logs after `git push`. |

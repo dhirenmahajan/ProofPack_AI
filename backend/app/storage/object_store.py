@@ -47,22 +47,46 @@ class LocalObjectStore:
         return path.read_bytes()
 
 
+def _is_r2_endpoint(endpoint: str) -> bool:
+    return "r2.cloudflarestorage.com" in endpoint
+
+
 class S3ObjectStore:
-    """S3-compatible store (Railway buckets, R2, MinIO)."""
+    """S3-compatible store (Cloudflare R2, Railway buckets, MinIO)."""
 
     def __init__(self) -> None:
         import boto3
+        from botocore.config import Config
 
         if not settings.s3_bucket:
             raise ValueError("S3_BUCKET is required when STORAGE_BACKEND=s3")
+        if not settings.s3_endpoint_url:
+            raise ValueError(
+                "S3_ENDPOINT_URL is required when STORAGE_BACKEND=s3 "
+                "(R2: https://<ACCOUNT_ID>.r2.cloudflarestorage.com)"
+            )
+        if not settings.s3_access_key_id or not settings.s3_secret_access_key:
+            raise ValueError(
+                "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are required when STORAGE_BACKEND=s3"
+            )
+
+        endpoint = settings.s3_endpoint_url.rstrip("/")
+        region = settings.s3_region or "auto"
+        if _is_r2_endpoint(endpoint):
+            # R2 accepts auto / us-east-1 / empty; boto3 requires a value.
+            region = "auto"
+
         self._bucket = settings.s3_bucket
         self._client = boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint_url or None,
-            region_name=settings.s3_region or None,
-            aws_access_key_id=settings.s3_access_key_id or None,
-            aws_secret_access_key=settings.s3_secret_access_key or None,
+            endpoint_url=endpoint,
+            region_name=region,
+            aws_access_key_id=settings.s3_access_key_id,
+            aws_secret_access_key=settings.s3_secret_access_key,
+            config=Config(signature_version="s3v4"),
         )
+        backend = "r2" if _is_r2_endpoint(endpoint) else "s3"
+        logger.info("Object store: %s bucket=%s endpoint=%s", backend, self._bucket, endpoint)
 
     def save(self, claim_id: str, filename: str, data: bytes) -> str:
         safe = _safe_filename(filename)

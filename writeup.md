@@ -346,8 +346,10 @@ branch `main`, root `backend/`). Every push to `main` rebuilds `proofpack-api` a
    boot (`main.py` `_init_db`). Set `DATABASE_URL_OVERRIDE=${{Postgres.DATABASE_URL}}` —
    `config.py` rewrites `postgresql://` → `postgresql+psycopg://`.
 2. **Redis** — `REDIS_URL=${{Redis.REDIS_URL}}` for Celery broker + cache.
-3. **Object storage** — Railway bucket (S3-compatible): `STORAGE_BACKEND=s3`, `S3_*` from
-   `railway bucket credentials --bucket proofpack`.
+3. **Object storage** — **Cloudflare R2** (recommended): `STORAGE_BACKEND=s3`,
+   `S3_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, keys from R2 API token.
+   Setup: `./scripts/cloudflare_r2_setup.sh` → `./scripts/railway_apply_r2.sh`.
+   (Railway bucket is an alternative — same `S3_*` shape.)
 4. **API** — GitHub source, `backend/` root, **Dockerfile** builder (`backend/railway.json`),
    Dockerfile CMD binds `$PORT`, healthcheck `/health` on the **API service only**,
    `INGEST_MODE=async`, `EMBEDDING_DIM=768`, `GEMINI_API_KEY`.

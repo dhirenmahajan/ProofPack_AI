@@ -43,7 +43,9 @@ Railway project **`proofpack-ai`** runs the scalable path with four resources:
   does not define a shared `/health` healthcheck for this reason.
 - **Managed Postgres** (pgvector) — provides `DATABASE_URL`.
 - **Managed Redis** — Celery broker + external-API cache.
-- **Railway bucket** — object storage (`STORAGE_BACKEND=s3`).
+- **Cloudflare R2** (recommended) — object storage (`STORAGE_BACKEND=s3`, S3-compatible API).
+  Setup: `infra/cloudflare/README.md` and `./scripts/cloudflare_r2_setup.sh`. A Railway
+  bucket also works if you prefer keeping storage on Railway.
 
 `backend/railway.json` sets the builder and restart policy for both services:
 
@@ -56,7 +58,7 @@ Railway project **`proofpack-ai`** runs the scalable path with four resources:
 
 Both app services deploy from the GitHub repo `dhirenmahajan/ProofPack_AI`, branch `main`,
 root directory `backend/`. They run with `INGEST_MODE=async` (uploads enqueue a Celery task;
-the worker ingests) and `STORAGE_BACKEND=s3` (Railway bucket).
+the worker ingests) and `STORAGE_BACKEND=s3` (Cloudflare R2 or Railway bucket).
 
 | Service | URL |
 | ------- | --- |

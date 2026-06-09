@@ -33,3 +33,5 @@ data/
 .vscode/
 *.log
 .railway-migrate/
+.cloudflare-r2.env
+.worktrees/

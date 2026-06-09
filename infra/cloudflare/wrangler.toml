@@ -1,0 +1,11 @@
+# ProofPack AI — Cloudflare R2 (object storage)
+# Fill account_id from: Cloudflare dashboard → Overview (right sidebar)
+# Or: export CLOUDFLARE_ACCOUNT_ID=... before running scripts/cloudflare_r2_setup.sh
+
+name = "proofpack-ai"
+account_id = "f03fc6ae5aaaef65a27035d9f9bedb1d"
+compatibility_date = "2024-01-01"
+
+[[r2_buckets]]
+binding = "PROOFPACK_BUCKET"
+bucket_name = "proofpack"
